@@ -1,4 +1,7 @@
-from random import sample
+from random import choices
+
+import Card
+from Controller import RandomController
 
 
 class Samurai:
@@ -11,7 +14,7 @@ class Samurai:
         # Stores the cards in hand
         self.discard = None
         # Have no discarded card by default
-        self.played_cards = []
+        self.played_cards = [None, None]
         # Cards played with index 0 being returned & index 1 being put into discard
         self.played_actions = []
         # Actions played for the corresponding cards
@@ -22,23 +25,79 @@ class Samurai:
         # Set as 0 for a basic game
         self.health = 2
         # Stores the samurai's health (2: healthy, 1: flipped, 0: dead)
+        self.board_size = 5
+        # Stores the size of the board
+        self.opponent = None
+        # Stores the opponent samurai object
         self.attacking = False
         # Stores if the samurai is currently attacking (and hitting)
         self.counter_attacking = False
         # Stores if the samurai is currently counter attacking
+        self.controller = RandomController()
+
+    def advanced_setup(self):
+        self.board_size = 7
+        # Set the board size as being the larger board
+        # TODO: Make the rest of advanced setup
 
     def choose_actions(self):
         # Function to choose the action for the samurai - eventually this will call a brain to make the decision
-        self.played_cards = sample(self.hand, 2)
-        # Choose 2 cards at random from the cards available in the hand
-        for card in self.played_cards:
-            # Iterate through the chosen cards
-            action = sample(card.actions, 1)
-            # Choose one of the actions that card can do
-            self.played_actions += action
-            # Add the action to the played actions list
-            self.hand.remove(card)
-            # Remove the card from the stored hand
+        input_vector = [0.0] * 28
+        # Create a list to store the cards in hand in a network readable format
+        # The structure is:
+        # [0] own health (0,0.5 or 1)
+        # [1] own position (between 0 & 1, rounded to 2 dp)
+        # [2-9] cards in hand
+        # [10-17] card in discard
+        # [18] opponent health (0,0.5 or 1)
+        # [19] opponent position (between 0 & 1, rounded to 2 dp)
+        # [20-27] opponent card in discard
+
+        input_vector[0] = self.health / 2
+        input_vector[18] = self.opponent.health / 2
+        # Health as a fraction
+        input_vector[1] = round(self.position / (self.board_size - 1), 2)
+        opponent_position = self.board_size - 1 - self.opponent.position
+        input_vector[19] = round(opponent_position / (self.board_size - 1), 2)
+        # Position as a fraction
+
+        for i, card in enumerate(Card.all_card_list):
+            # Run through every card in the game
+            input_vector[i + 2] = float(card in self.hand)
+            # If it's in your hand
+            input_vector[i + 10] = float(card == self.discard)
+            # If it's in your discard
+            input_vector[i + 20] = float(card == self.opponent.discard)
+            # If it is the opponent's discard
+
+        output_vector = self.controller.select_actions(input_vector)
+        # Get the output of the controller as a list of weights for each action
+
+        for played_index in range(2):
+            # Iterate through each half of the list
+            action_chances = output_vector[10 * played_index: 10 * played_index + 10]
+            # Get the rankings of each action from the controller output
+            available_actions = self.return_possible_actions()
+            # Get all the possible remaining actions from the cards in hand
+            while True:
+                # Run until an action is chosen
+                action_name = choices(Card.all_action_list, weights=action_chances)[0]
+                # Choose a random action, weighted by the output of the neural network
+                if action_name in available_actions.keys():
+                    # if the chosen action is valid
+                    chosen_action = available_actions[action_name]
+                    # Store the chosen action
+                    chosen_card = self.get_hand_card(chosen_action)
+                    # Store the chosen card
+
+                    self.played_actions += [chosen_action]
+                    # Add the chosen action to the played card list
+                    self.played_cards[played_index] = chosen_card
+                    # Add the chosen card to the correct index of chosen card list
+                    self.hand.remove(chosen_card)
+                    # Remove the chosen card from the player hand
+                    break
+                    # Break out of the while loop
 
     def get_card(self, action):
         # Get a card from an action name
@@ -50,17 +109,25 @@ class Samurai:
             return card
             # Return it
         else:
+            return self.get_hand_card(action)
             # If you don't find the card in the played cards, look through the hand
-            for card in self.hand:
-                # Iterate through the cards in hand
-                if action in card.actions:
-                    # If the action is assigned to that card
-                    return card
-                    # Return the card
-            return None
-            # If no card is found, return None
+
+    def get_hand_card(self, action):
+        for card in self.hand:
+            # Iterate through the cards in hand
+            if action in card.actions:
+                # If the action is assigned to that card
+                return card
+                # Return the card
+        return None
+        # If no card is found, return None
 
     def get_played_card(self, action):
+        if self.played_cards[0] is None:
+            # If the first played card is None
+            return None
+            # Return invalid
+
         for card in self.played_cards:
             # Iterate through the currently played cards
             if action in card.actions:
@@ -70,7 +137,7 @@ class Samurai:
         return None
         # If no card is found, return None
 
-    def perform_action(self, opponent, board_size, simultaneous=False):
+    def perform_action(self, simultaneous=False):
         # Perform the currently selected action of the samurai
         action = self.played_actions[0]
         # Get the first action in the action queue
@@ -79,7 +146,7 @@ class Samurai:
             # If you are in the correct beginning stance or the beginning stance doesn't matter
             print(self.player, action.name)
             # Print the action being performed
-            opponent_position = board_size - opponent.position - 1
+            opponent_position = self.board_size - 1 - self.opponent.position
             # Get the opponent's position relative to you
 
             #################################
@@ -87,7 +154,7 @@ class Samurai:
             #################################
             self.position += action.movement
             # Move yourself by the movement of the action
-            self.position = min(max(0, self.position), board_size - 1)
+            self.position = min(max(0, self.position), self.board_size - 1)
             # Constrain your position to be within the board
             if not simultaneous and self.position > opponent_position:
                 # If the movement is not occurring simultaneously, and you have moved past the opponent position
@@ -164,16 +231,15 @@ class Samurai:
         self.played_actions.pop(0)
         # Remove the played action from the played_actions list
 
-    def return_actions(self):
+    def return_possible_actions(self):
         # Function to return all the available actions for the samurai
         # This may be updated in the future to return a vector of 1s and 0s for NN input
-        actions = []
-        # Create an empty list
+        actions = {}
+        # Create an empty dictionary
         for card in self.hand:
             # For each card in the samurai's hand
-            actions += card.actions
-            # Add all that cards actions to the action list
-
+            actions = actions | {action.name: action for action in card.actions}
+            # Add all that cards actions to the action dictionary
         return actions
         # Return the list of actions
 

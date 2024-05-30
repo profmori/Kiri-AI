@@ -31,3 +31,7 @@ special_card_list = [Card(Action('kesa strike', begin_stance='heaven', end_stanc
                                  strike_min=2, strike_range=1, single_use=True)),
                      Card(Action('counterattack', strike_min=0, strike_range=-1, single_use=True))]
 # The list of special attacks
+
+all_card_list = basic_card_list + special_card_list
+
+all_action_list = [action.name for card in all_card_list for action in card.actions]
