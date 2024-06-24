@@ -33,5 +33,7 @@ special_card_list = [Card(Action('kesa strike', begin_stance='heaven', end_stanc
 # The list of special attacks
 
 all_card_list = basic_card_list + special_card_list
+# The list of all possible cards in the game
 
 all_action_list = [action.name for card in all_card_list for action in card.actions]
+# The list of all possible actions in the game

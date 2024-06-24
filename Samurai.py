@@ -1,12 +1,11 @@
-from random import choices
-
 import Card
-from Controller import RandomController
+from BaseController import BaseController
+from RandomController import RandomController
 
 
 class Samurai:
     # Class for dealing with Samurai data (health, hand & discard)
-    def __init__(self, player_name):
+    def __init__(self, player_name, controller=None):
         # Initialised with a player name
         self.player = player_name
         # Store the player name
@@ -33,15 +32,74 @@ class Samurai:
         # Stores if the samurai is currently attacking (and hitting)
         self.counter_attacking = False
         # Stores if the samurai is currently counter attacking
-        self.controller = RandomController()
+
+        if issubclass(type(controller), BaseController):
+            # Check if the input controller extends the generic controller class
+            self.controller = controller
+            # Set that as the controller
+        else:
+            self.controller = RandomController()
+        # Set the controller as the input controller type, or random if unspecified
 
     def advanced_setup(self):
         self.board_size = 7
         # Set the board size as being the larger board
-        # TODO: Make the rest of advanced setup
+        special_cards = [0] * 3
+        # Create a small vector to store which special card the player starts with
+        for i, card in enumerate(Card.special_card_list):
+            if card in self.hand:
+                special_cards[i] = 1
+                break
+            # Returns 1 if it is the special card and then exits the loop
+
+        setup = self.controller.choose_setup(special_cards)
+        # Get the setup from the controller based on the assigned special card
+        self.position = setup[0]
+        # Set position based on the setup output
+        self.stance = setup[1]
+        # Set the stance based on the setup output
 
     def choose_actions(self):
         # Function to choose the action for the samurai - eventually this will call a brain to make the decision
+
+        input_vector = self.generate_input_vector()
+        # Generate the 28 long input vector
+        # [0] own health (0,0.5 or 1)
+        # [1] own position (between 0 & 1, rounded to 2 dp)
+        # [2-9] cards in hand
+        # [10-17] card in discard
+        # [18] opponent health (0,0.5 or 1)
+        # [19] opponent position (between 0 & 1, rounded to 2 dp)
+        # [20-27] opponent card in discard
+
+        output_vector = self.controller.select_actions(input_vector)
+        # Get the output of the controller as a list of weights for each action
+
+        for card_play in range(2):
+            # Iterate through each half of the list
+            action_ranks = output_vector[10 * card_play: 10 * card_play + 10]
+            # Get the rankings of each action from the controller output
+            available_actions = self.return_possible_actions()
+            # Get all the possible remaining actions from the cards in hand
+            for action_name in action_ranks:
+                # Go through the actions in the NN ranked order
+                if action_name in available_actions.keys():
+                    # if the chosen action is valid
+                    chosen_action = available_actions[action_name]
+                    # Store the chosen action
+                    chosen_card = self.get_hand_card(chosen_action)
+                    # Store the chosen card
+
+                    self.played_actions += [chosen_action]
+                    # Add the chosen action to the played card list
+                    self.played_cards[card_play] = chosen_card
+                    # Add the chosen card to the correct index of chosen card list
+                    self.hand.remove(chosen_card)
+                    # Remove the chosen card from the player hand
+                    break
+                    # Break out of the while loop
+
+    def generate_input_vector(self):
         input_vector = [0.0] * 28
         # Create a list to store the cards in hand in a network readable format
         # The structure is:
@@ -70,34 +128,8 @@ class Samurai:
             input_vector[i + 20] = float(card == self.opponent.discard)
             # If it is the opponent's discard
 
-        output_vector = self.controller.select_actions(input_vector)
-        # Get the output of the controller as a list of weights for each action
-
-        for played_index in range(2):
-            # Iterate through each half of the list
-            action_chances = output_vector[10 * played_index: 10 * played_index + 10]
-            # Get the rankings of each action from the controller output
-            available_actions = self.return_possible_actions()
-            # Get all the possible remaining actions from the cards in hand
-            while True:
-                # Run until an action is chosen
-                action_name = choices(Card.all_action_list, weights=action_chances)[0]
-                # Choose a random action, weighted by the output of the neural network
-                if action_name in available_actions.keys():
-                    # if the chosen action is valid
-                    chosen_action = available_actions[action_name]
-                    # Store the chosen action
-                    chosen_card = self.get_hand_card(chosen_action)
-                    # Store the chosen card
-
-                    self.played_actions += [chosen_action]
-                    # Add the chosen action to the played card list
-                    self.played_cards[played_index] = chosen_card
-                    # Add the chosen card to the correct index of chosen card list
-                    self.hand.remove(chosen_card)
-                    # Remove the chosen card from the player hand
-                    break
-                    # Break out of the while loop
+        return input_vector
+        # Return the value
 
     def get_card(self, action):
         # Get a card from an action name
@@ -122,7 +154,8 @@ class Samurai:
         return None
         # If no card is found, return None
 
-    def get_played_card(self, action):
+    def get_played_card(self, action) -> Card:
+        # Get the card from the action
         if self.played_cards[0] is None:
             # If the first played card is None
             return None
@@ -172,7 +205,7 @@ class Samurai:
                 print('attacking')
                 # Return this for testing
             elif action.strike_min > action.strike_max:
-                # If your attack has a negative range (this will probably cause issues down the line)
+                # If your attack has a negative range
                 self.counter_attacking = True
                 # You are counterattacking
                 print('counter attacking')
@@ -233,7 +266,6 @@ class Samurai:
 
     def return_possible_actions(self):
         # Function to return all the available actions for the samurai
-        # This may be updated in the future to return a vector of 1s and 0s for NN input
         actions = {}
         # Create an empty dictionary
         for card in self.hand:
