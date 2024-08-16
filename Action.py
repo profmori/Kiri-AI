@@ -19,11 +19,11 @@ class Action:
         # Whether the card is one of the special single use actions
 
         # Determine the type of the action for prioritisation
-        if abs(self.movement) == 1:
-            # If the card moves you by 1 it has top priority
+        if abs(self.movement) == 2:
+            # If the card moves you by 2 (charge) it has top priority
             self.priority = 1
-        elif self.movement == 2:
-            # If it moves you by 2 it is charge and has 2nd priority
+        elif self.movement == 1:
+            # If it moves you by 1 (approach/retreat) it has 2nd priority
             self.priority = 2
         elif self.end_stance == 'change':
             # If it is the change stance card it has third priority
