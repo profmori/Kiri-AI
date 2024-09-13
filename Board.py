@@ -6,7 +6,7 @@ from Card import special_card_list, basic_card_list
 
 class Board:
     # Class for representing the board state
-    def __init__(self, game_type, samurai_1, samurai_2):
+    def __init__(self, game_type, samurai_1, samurai_2, display_only=False):
         # Initialised with two samurai objects as well as whether it is a basic or advanced game
         self.samurai_1 = samurai_1
         self.samurai_2 = samurai_2
@@ -31,18 +31,22 @@ class Board:
             # If it is an advanced game
             self.board_size = 7
             # Set the board size to 7
-            self.samurai_1.advanced_setup()
-            self.samurai_2.advanced_setup()
-            # Run the advanced setup from the samurai class
-            # This will set the start position and starting stance
+            if not display_only:
+                # If the board is not being used for displaying for manual choice
+                self.samurai_1.advanced_setup()
+                self.samurai_2.advanced_setup()
+                # Run the advanced setup from the samurai class
+                # This will set the start position and starting stance
 
-        self.display_board()
-        # Show the board
+        self.log_string = ''
+        # Create the human-readable log string
+        self.turn = 0
+        # Count the current turn of the battle
 
     def act_simultaneously(self):
         # Function to allow two samurai actions to be performed simultaneously
-        self.samurai_1.perform_action(simultaneous=True)
-        self.samurai_2.perform_action(simultaneous=True)
+        self.log_string = self.samurai_1.perform_action(self.log_string, simultaneous=True)
+        self.log_string = self.samurai_2.perform_action(self.log_string, simultaneous=True)
         # Perform actions as normal, ignoring opponent position & simultaneous factor
 
         while self.samurai_1.position > (self.board_size - self.samurai_2.position - 1):
@@ -70,8 +74,8 @@ class Board:
 
         colour_dict = {
             2: '\033[32m',  # Green
-            1: '\033[34m',  # Blue
-            0: '\033[31m'  # Red
+            1: '\033[31m',  # Red
+            0: ''  # No colour change / Black
         }
         # Dictionary to store text colours based on health value
 
@@ -94,16 +98,32 @@ class Board:
 
     def run_game(self):
         # Function to run the game all the way through
-        turn = 0
-        # Sets the current turn number to zero
+
         while min(self.samurai_1.health, self.samurai_2.health) > 0:
             # Runs until someone dies
-            turn += 1
+            self.turn += 1
             # Increment the turns by 1
-            print('Turn', turn)
-            # Print the new turn number
             self.run_turn()
             # Run the turn
+
+        if self.samurai_1.health == 0:
+            winner = self.samurai_2
+        else:
+            winner = self.samurai_1
+        # Set the winner based on which samuari has 0 health
+
+        if self.samurai_1.controller.controller_name == 'ManualController' or self.samurai_2.controller.controller_name == 'ManualController':
+            self.display_board()
+        # If either samurai has a manual controller, display the final state of the board
+
+        loser = [self.samurai_1, self.samurai_2]
+        loser.remove(winner)
+        # Set the loser as the other samurai who is not the winner
+
+        return {'winner': winner.controller.controller_name, 'loser': loser[0].controller.controller_name,
+                'log': self.log_string}
+        # Return a dictionary of the winning controller, losing controller and the human-readable action log
+        # Might be better to return a dictionary of the choices made for training instead
 
     def run_turn(self):
         # Function to run a single 2 card turn
@@ -112,8 +132,11 @@ class Board:
         self.samurai_2.choose_actions()
         # Ask samurai 2 to choose an action
         # These should be run simultaneously eventually (ray?)
+        print()
 
         for action_num in range(2):
+            stage = ['a', 'b'][action_num]
+            self.log_string += f'Turn {self.turn}{stage}\n'
             # Iterate through both actions being played
             s1_action = copy(self.samurai_1.played_actions[0])
             s2_action = copy(self.samurai_2.played_actions[0])
@@ -131,11 +154,11 @@ class Board:
                     # If there is only one of the two samurai acting
                     if s1_act:
                         # If it is samurai 1
-                        self.samurai_1.perform_action()
+                        self.log_string = self.samurai_1.perform_action(self.log_string)
                         # Perform the action of samurai 1
                     else:
                         # If it is samurai 2
-                        self.samurai_2.perform_action()
+                        self.log_string = self.samurai_2.perform_action(self.log_string)
                         # Perform the action of samurai 2
                 else:
                     # If the two actions are the same priority (which can only be both true)
@@ -145,12 +168,12 @@ class Board:
                         # Enact their moves simultaneously
                     elif self.samurai_1.stance == 'heaven':
                         # If samurai 1 is in heaven stance, they act first
-                        self.samurai_1.perform_action()
-                        self.samurai_2.perform_action()
+                        self.log_string = self.samurai_1.perform_action(self.log_string)
+                        self.log_string = self.samurai_2.perform_action(self.log_string)
                     else:
                         # Otherwise samurai 2 is in heaven stance, and they act first
-                        self.samurai_2.perform_action()
-                        self.samurai_1.perform_action()
+                        self.log_string = self.samurai_2.perform_action(self.log_string)
+                        self.log_string = self.samurai_1.perform_action(self.log_string)
 
             if self.samurai_1.attacking ^ self.samurai_2.attacking:
                 # If only one of the samurai attacked this turn (logical XOR)
@@ -163,9 +186,6 @@ class Board:
             # Reset the attack flag on both samurai
             self.samurai_1.counter_attacking, self.samurai_2.counter_attacking = False, False
             # Get rid of the counter attacking variable after checking so a samurai doesn't become invincible
-
-            self.display_board()
-            # Show the board after each action
 
             if min(self.samurai_1.health, self.samurai_2.health) <= 0:
                 # If someone is dead after the first card has been resolved

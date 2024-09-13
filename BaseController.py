@@ -12,6 +12,9 @@ class BaseController:
         self.output_vector = [0] * 20
         # This is the output of the controller - 20 values between 0 & 1
         # There are 8 cards and 2 double-sided cards, so 10 actions
+        self.controller_name = self.__class__.__name__
+        # Get the name of the class as the controller name
+        # This can be overwritten if you want a more descritive name
 
     def choose_setup(self, special_cards):
         # Takes an input of 3 values of 0 or 1 (which special card the player has)
@@ -19,6 +22,7 @@ class BaseController:
         # [0] position of the samurai - 0,1 or 2
         # [1] stance of the samurai - 'heaven' or 'earth'
         # If you input your vector into super().choose_setup it will fix this from floats (0 -> 'heaven' 1 -> 'earth')
+        # This will also map a random value from 0 -> 1 to the start position 0 -> 0, 0.5 -> 1, 1 -> 2
         if len(special_cards) == 2 and type(special_cards) is list:
             # If a list of exactly two "special cards" were input (a super call)
             if round(special_cards[1]) == 0:
@@ -30,7 +34,7 @@ class BaseController:
                 stance = 'earth'
                 # Set the stance to earth
 
-            return [round(special_cards[0]), stance]
+            return [round(special_cards[0] * 2), stance]
             # Returns the rounded starting position and the chosen stance
         else:
             # If a different input has been given for 'special_cards'

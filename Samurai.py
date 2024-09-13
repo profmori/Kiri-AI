@@ -46,15 +46,15 @@ class Samurai:
         # Set the board size as being the larger board
         special_cards = [0] * 3
         # Create a small vector to store which special card the player starts with
-        for i, card in enumerate(Card.special_card_list):
+        for index, card in enumerate(Card.special_card_list):
             if card in self.hand:
-                special_cards[i] = 1
+                special_cards[index] = 1
                 break
             # Returns 1 if it is the special card and then exits the loop
 
         setup = self.controller.choose_setup(special_cards)
         # Get the setup from the controller based on the assigned special card
-        self.position = setup[0]
+        self.position = setup[0] + 1
         # Set position based on the setup output
         self.stance = setup[1]
         # Set the stance based on the setup output
@@ -63,18 +63,19 @@ class Samurai:
         # Function to choose the action for the samurai - eventually this will call a brain to make the decision
 
         input_vector = self.generate_input_vector()
-        # Generate the 28 long input vector
+        # Generate the 30 long input vector
         # [0] own health (0,0.5 or 1)
         # [1] own position (between 0 & 1, rounded to 2 dp)
-        # [2-9] cards in hand
-        # [10-17] card in discard
-        # [18] opponent health (0,0.5 or 1)
-        # [19] opponent position (between 0 & 1, rounded to 2 dp)
-        # [20-27] opponent card in discard
+        # [2] Own stance (0 = heaven, 1 = earth)
+        # [3-10] cards in hand
+        # [11-18] card in discard
+        # [19] opponent health (0,0.5 or 1)
+        # [20] opponent position (between 0 & 1, rounded to 2 dp)
+        # [21] opponent stance (0 = heaven, 1 = earth)
+        # [22-29] opponent card in discard
 
         output_vector = self.controller.select_actions(input_vector)
         # Get the output of the controller as a list of weights for each action
-
         for card_play in range(2):
             # Iterate through each half of the list
             action_ranks = output_vector[10 * card_play: 10 * card_play + 10]
@@ -100,32 +101,40 @@ class Samurai:
                     # Break out of the while loop
 
     def generate_input_vector(self):
-        input_vector = [0.0] * 28
+        input_vector = [0.0] * 30
         # Create a list to store the cards in hand in a network readable format
         # The structure is:
         # [0] own health (0,0.5 or 1)
         # [1] own position (between 0 & 1, rounded to 2 dp)
-        # [2-9] cards in hand
-        # [10-17] card in discard
-        # [18] opponent health (0,0.5 or 1)
-        # [19] opponent position (between 0 & 1, rounded to 2 dp)
-        # [20-27] opponent card in discard
+        # [2] Own stance (0 = heaven, 1 = earth)
+        # [3-10] cards in hand
+        # [11-18] card in discard
+        # [19] opponent health (0,0.5 or 1)
+        # [20] opponent position (between 0 & 1, rounded to 2 dp)
+        # [21] opponent stance (0 = heaven, 1 = earth)
+        # [22-29] opponent card in discard
+        ################################################# <- TO-DO -> #################################################
+        # Need some way to mark whether the oppponent has used their special cards
+        # Could mark it as discarded since they don't have it in hand after use
 
         input_vector[0] = self.health / 2
-        input_vector[18] = self.opponent.health / 2
+        input_vector[19] = self.opponent.health / 2
         # Health as a fraction
         input_vector[1] = round(self.position / (self.board_size - 1), 2)
         opponent_position = self.board_size - 1 - self.opponent.position
-        input_vector[19] = round(opponent_position / (self.board_size - 1), 2)
+        input_vector[20] = round(opponent_position / (self.board_size - 1), 2)
         # Position as a fraction
+        input_vector[2] = float(self.stance == 'earth')
+        input_vector[21] = float(self.opponent.stance == 'earth')
+        # Stance as a 1 or 0, converted from a boolean
 
         for i, card in enumerate(Card.all_card_list):
             # Run through every card in the game
-            input_vector[i + 2] = float(card in self.hand)
+            input_vector[i + 3] = float(card in self.hand)
             # If it's in your hand
-            input_vector[i + 10] = float(card == self.discard)
+            input_vector[i + 11] = float(card == self.discard)
             # If it's in your discard
-            input_vector[i + 20] = float(card == self.opponent.discard)
+            input_vector[i + 22] = float(card == self.opponent.discard)
             # If it is the opponent's discard
 
         return input_vector
@@ -170,15 +179,20 @@ class Samurai:
         return None
         # If no card is found, return None
 
-    def perform_action(self, simultaneous=False):
+    def perform_action(self, log_string, simultaneous=False):
         # Perform the currently selected action of the samurai
         action = self.played_actions[0]
         # Get the first action in the action queue
 
         if self.stance == action.begin_stance or action.begin_stance == 'any':
             # If you are in the correct beginning stance or the beginning stance doesn't matter
-            print(self.player, action.name)
-            # Print the action being performed
+            log_string += f'{self.player} {action.name}\n'
+            # Log the action
+            if self.controller.controller_name == 'ManualController' or self.opponent.controller.controller_name == 'ManualController':
+                # If there is a manually controlled player in play
+                print(f'{self.player} {action.name}')
+                # Also print out the action being taken
+
             opponent_position = self.board_size - 1 - self.opponent.position
             # Get the opponent's position relative to you
 
@@ -202,14 +216,10 @@ class Samurai:
                 # If the opponent position is between your minimum attack range and maximum attack range
                 self.attacking = True
                 # You are successfully attacking
-                print('attacking')
-                # Return this for testing
             elif action.strike_min > action.strike_max:
                 # If your attack has a negative range
                 self.counter_attacking = True
                 # You are counterattacking
-                print('counter attacking')
-                # Return this for testing
 
             ##############################
             # Handle stance changes next #
@@ -231,8 +241,12 @@ class Samurai:
                     # Set your stance to the end stance
         else:
             # If you are in the wrong stance for the action, and the action has a specific stance
-            print(self.player, action.name, 'failed')
-            # Report that the action has failed
+            log_string += f'{self.player} {action.name} failed\n'
+            # Log that the action has failed
+            if self.controller.controller_name == 'ManualController' or self.opponent.controller.controller_name == 'ManualController':
+                # If there is a manually controlled player in play
+                print(f'{self.player} {action.name} failed')
+                # Also print out the action being taken
 
         ###############################################################################
         # Once all action effects have resolved, discard the card / return it to hand #
@@ -263,6 +277,8 @@ class Samurai:
 
         self.played_actions.pop(0)
         # Remove the played action from the played_actions list
+
+        return log_string
 
     def return_possible_actions(self):
         # Function to return all the available actions for the samurai
