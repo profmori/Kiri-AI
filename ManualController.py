@@ -11,11 +11,11 @@ class ManualController(BaseController):
         # [1] own position (between 0 & 1, rounded to 2 dp)
         # [2] Own stance (0 = heaven, 1 = earth)
         # [3-10] cards in hand
-        # [11-18] card in discard
+        # [11-18] card in discard - also includes own used special card
         # [19] opponent health (0,0.5 or 1)
         # [20] opponent position (between 0 & 1, rounded to 2 dp)
         # [21] opponent stance (0 = heaven, 1 = earth)
-        # [22-29] opponent card in discard
+        # [22-29] opponent card in discard - also includes used special card
 
         self_samurai = Samurai('self')
         opponent_samurai = Samurai('opponent')
@@ -71,8 +71,10 @@ class ManualController(BaseController):
         # Print the hand string without the trailing comma
 
         try:
-            self_discard = Card.all_card_list[input_vector[11:19].index(1)].name
+            self_discard = Card.all_card_list[input_vector[11:16].index(1.0)].name
             # Try to get the name of the discarded card
+            input_vector[input_vector[11:16].index(1.0) + 11] = 0.0
+            # Remove this so the first value of 1.0 will be the special card if it has been used
         except ValueError:
             self_discard = 'None'
             # If there is no discarded card, return None
@@ -80,13 +82,33 @@ class ManualController(BaseController):
         # Display your discarded card
 
         try:
-            opponent_discard = Card.all_card_list[input_vector[22:30].index(1)].name
+            self_used = Card.all_card_list[input_vector[11:19].index(1.0)].name
+            # Try to get the name of the used special card
+            print(f'Your used special card: {self_used}')
+            # Display your used special card
+        except ValueError:
+            pass
+            # If there is no special card, do nothing
+
+        try:
+            opponent_discard = Card.all_card_list[input_vector[22:27].index(1.0)].name
             # Try to get the name of the discarded card
+            input_vector[input_vector[22:27].index(1.0) + 22] = 0.0
+            # Remove this so the first value of 1.0 will be the special card if it has been used
         except ValueError:
             opponent_discard = 'None'
             # If there is no discarded card, return None
         print(f'Opponent discard: {opponent_discard}')
         # Display your opponent's discarded card
+
+        try:
+            opponent_used = Card.all_card_list[input_vector[22:30].index(1.0)].name
+            # Try to get the name of the used special card
+            print(f'Opponent used special card: {opponent_used}')
+            # Display your opponent's used special card
+        except ValueError:
+            pass
+            # If there is no special card, do nothing
 
         card_index_1, card_index_2 = -1, -1
         # Set the selection indices to invalid values
@@ -156,7 +178,7 @@ class ManualController(BaseController):
         # Return the actions ranked by the maximum output vector (your selection, which is set to 1)
 
     def choose_setup(self, special_cards):
-        special_index = special_cards.index(1)
+        special_index = special_cards.index(1.0)
         special_card = Card.special_card_list[special_index]
         # Get the special card that the player has been given
         start_pos = -1

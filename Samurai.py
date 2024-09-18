@@ -13,6 +13,8 @@ class Samurai:
         # Stores the cards in hand
         self.discard = None
         # Have no discarded card by default
+        self.spent_special_card = None
+        # Stores your used special card (if you have used it)
         self.played_cards = [None, None]
         # Cards played with index 0 being returned & index 1 being put into discard
         self.played_actions = []
@@ -68,11 +70,11 @@ class Samurai:
         # [1] own position (between 0 & 1, rounded to 2 dp)
         # [2] Own stance (0 = heaven, 1 = earth)
         # [3-10] cards in hand
-        # [11-18] card in discard
+        # [11-18] card in discard - also includes own used special card
         # [19] opponent health (0,0.5 or 1)
         # [20] opponent position (between 0 & 1, rounded to 2 dp)
         # [21] opponent stance (0 = heaven, 1 = earth)
-        # [22-29] opponent card in discard
+        # [22-29] opponent card in discard - also includes used special card
 
         output_vector = self.controller.select_actions(input_vector)
         # Get the output of the controller as a list of weights for each action
@@ -108,14 +110,11 @@ class Samurai:
         # [1] own position (between 0 & 1, rounded to 2 dp)
         # [2] Own stance (0 = heaven, 1 = earth)
         # [3-10] cards in hand
-        # [11-18] card in discard
+        # [11-18] card in discard - also includes own used special card
         # [19] opponent health (0,0.5 or 1)
         # [20] opponent position (between 0 & 1, rounded to 2 dp)
         # [21] opponent stance (0 = heaven, 1 = earth)
-        # [22-29] opponent card in discard
-        ################################################# <- TO-DO -> #################################################
-        # Need some way to mark whether the oppponent has used their special cards
-        # Could mark it as discarded since they don't have it in hand after use
+        # [22-29] opponent card in discard - also includes used special card
 
         input_vector[0] = self.health / 2
         input_vector[19] = self.opponent.health / 2
@@ -132,10 +131,10 @@ class Samurai:
             # Run through every card in the game
             input_vector[i + 3] = float(card in self.hand)
             # If it's in your hand
-            input_vector[i + 11] = float(card == self.discard)
-            # If it's in your discard
-            input_vector[i + 22] = float(card == self.opponent.discard)
-            # If it is the opponent's discard
+            input_vector[i + 11] = float(card == self.discard or card == self.spent_special_card)
+            # If it's in your discard, or it's your used special card
+            input_vector[i + 22] = float(card == self.opponent.discard or card == self.opponent.spent_special_card)
+            # If it is the opponent's discard, or it's your opponent's used special card
 
         return input_vector
         # Return the value
@@ -257,6 +256,8 @@ class Samurai:
             played_card = self.get_played_card(action)
             # Get the played card that corresponds to the action
         else:
+            self.spent_special_card = self.get_played_card(action)
+            # Store the card as the player's spent special card
             played_card = None
             # Special cards should just be blanked from the game
 
