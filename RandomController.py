@@ -1,5 +1,5 @@
 from random import random
-import Card
+
 from BaseController import BaseController
 
 
@@ -15,3 +15,13 @@ class RandomController(BaseController):
         # Generates two random numbers between 0 and 1
         return super().choose_setup(chosen_cards)
         # Runs them through the parent class to get them in the right format
+
+    def get_reward(self, agent):
+        # Required to be implemented, but will never be used
+        return round(random(), 2)
+        # Return a random number just in case it would cause an error not to
+
+    def modify_rewards(self, agent):
+        # Required to be implemented, but will never be used
+        return agent.input_vectors
+        # Return the unmodified input vectors

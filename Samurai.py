@@ -1,5 +1,4 @@
 import Card
-from BaseController import BaseController
 from RandomController import RandomController
 
 
@@ -34,14 +33,19 @@ class Samurai:
         # Stores if the samurai is currently attacking (and hitting)
         self.counter_attacking = False
         # Stores if the samurai is currently counter attacking
+        self.curr_turn = 0
+        # Stores the current turn number (may be used for rewards)
 
-        if issubclass(type(controller), BaseController):
-            # Check if the input controller extends the generic controller class
-            self.controller = controller
+        if controller is not None:
+            # Check if the controller has been input
+            self.controller = controller()
             # Set that as the controller
         else:
             self.controller = RandomController()
         # Set the controller as the input controller type, or random if unspecified
+
+        self.input_vectors = {}
+        # List to store the input vectors
 
     def advanced_setup(self):
         self.board_size = 7
@@ -136,8 +140,13 @@ class Samurai:
             input_vector[i + 22] = float(card == self.opponent.discard or card == self.opponent.spent_special_card)
             # If it is the opponent's discard, or it's your opponent's used special card
 
+        self.curr_turn += 1
+        # Increase the stored turn by 1
+
+        self.input_vectors[self.curr_turn] = {'vector': input_vector, 'reward': self.controller.base_reward}
+        # Store the input vector for this turn in the input vectors with the base (no damage) reward
         return input_vector
-        # Return the value
+        # Return the input vector
 
     def get_card(self, action):
         # Get a card from an action name
@@ -296,3 +305,17 @@ class Samurai:
         # Function to return all the available cards to the samurai
         return self.hand
         # Just returns the hand at the moment
+
+    def update_reward(self):
+        # Function to update the reward for this turn
+        reward = self.controller.get_reward(self)
+        # Get the relevant reward value from the controller
+        # Feeds in the whole agent so all data can be extracted
+        self.input_vectors[self.curr_turn]['reward'] = reward
+        # Updates the input vector for the current turn
+
+    def update_win(self):
+        # Function to update the rewards of the controller based on if the agent won or lost
+        self.input_vectors = self.controller.modify_rewards(self)
+        # Updates the whole input vector based on the agent
+        # Whole agent is input to allow for reward functions to be as complicated as necessary

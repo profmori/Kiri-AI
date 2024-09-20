@@ -1,18 +1,20 @@
-from Board import Board
-from ManualController import ManualController
-from Samurai import Samurai
+import ray
+
+from NeuralNetworkTraining import train_controller_list
+from RandomController import RandomController
+
+# You need to install ray which pycharm cannot do automatically
+# Run pip install -U "ray[all]"
 
 if __name__ == '__main__':
-    p1 = Samurai('jom', ManualController())
-    # Initialises a samurai called Jom with a manual controller
-    p2 = Samurai('rajun')
-    # Initialises a samurai called Rajun (random controller by default)
+    ray.init()
+    # Start ray for running jobs concurrently
 
-    new_board = Board('advanced', p1, p2)
-    # Begins a game on the advanced board with these players
-
-    result = new_board.run_game()
-    # Runs the game on that board
-
-    print(result)
-    # Prints the dictionary of the result
+    controller_list = [RandomController]
+    # Put all controllers you want to train with in this list
+    # Should always have RandomController as a baseline
+    # Other deterministic controllers: TBD
+    train_controller_list(controller_list)
+    # Trains the listed controllers
+    # Runs 1000 times by default - can set num_loops to cap it to a different value
+    # Currently creates 10 of each controller - can set num_agents to change this

@@ -196,3 +196,13 @@ class ManualController(BaseController):
 
         return [start_pos, stance]
         # Return the start position and stance as input by the user to the game
+
+    def get_reward(self, agent):
+        # Required to be implemented, but will never be used
+        return round(random(), 2)
+        # Return a random number just in case it would cause an error not to
+
+    def modify_rewards(self, agent):
+        # Required to be implemented, but will never be used
+        return agent.input_vectors
+        # Return the unmodified input vectors

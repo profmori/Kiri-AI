@@ -1,11 +1,12 @@
+from abc import abstractmethod, ABC
 from copy import copy
 from random import choices
 
 from Card import all_action_list
 
 
-class BaseController:
-    # Base class for all controllers to inherit from
+class BaseController(ABC):
+    # Abstract base class for all controllers to inherit from
     # Includes useful functions that might be needed for general manipulation
     # Also specifies standard formats for input and output of data
     def __init__(self):
@@ -15,8 +16,11 @@ class BaseController:
         self.controller_name = self.__class__.__name__
         # Get the name of the class as the controller name
         # This can be overwritten if you want a more descritive name
+        self.base_reward = 0
+        # The reward to be assigned to an action if no damage is taken or dealt
 
-    def choose_setup(self, special_cards):
+    @abstractmethod
+    def choose_setup(self, special_cards) -> list:
         # Takes an input of 3 values of 0 or 1 (which special card the player has)
         # Returns 2 values for advanced setup
         # [0] position of the samurai - 0,1 or 2
@@ -106,8 +110,29 @@ class BaseController:
         return ranked_vector
         # Returns the ranked vector
 
-    def select_actions(self, input_vector):
+    @abstractmethod
+    def select_actions(self, input_vector) -> list:
         # Returns a list of 20 values between 0 & 1 (the output vector variable above)
         # [0-9] Outputs for the first card to be played
         # [10-19] Outputs for the second card to be played
+        pass
+
+    @abstractmethod
+    def get_reward(self, agent) -> float:
+        # Returns the reward (float) based on the Samurai's current state
+        # This function is only called when someone is taking damage,
+        # so if agent.attacking is False, then the agent is taking damage
+        # Thus this function handles both reward for hitting someone, and punishment for being hit
+        # Note that agent.health is an indication before damage is taken (so it will be 2 or 1)
+        pass
+
+    @abstractmethod
+    def modify_rewards(self, agent) -> dict:
+        # Takes the agent, and returns the input vectors with the reward modified based on the result of the match
+        # Win can be determined by finding win_bool = agent.health > 0
+        # Modification should be performed on agent.input_vectors which has the following structure:
+        # {1 : {'vector': [...], 'reward': float}, 2: {'vector': [...], 'reward': float}, ..., final_turn_num: {...} }
+        # 'vector' should not be modified
+        # 'reward' should be added / multiplied - 'reward' value already set based on get_reward function
+        # Total turn number can be found from max(agent.input_vectors.keys())
         pass

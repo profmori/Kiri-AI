@@ -116,14 +116,21 @@ class Board:
             self.display_board()
         # If either samurai has a manual controller, display the final state of the board
 
-        loser = [self.samurai_1, self.samurai_2]
-        loser.remove(winner)
+        loser_list = [self.samurai_1, self.samurai_2]
+        loser_list.remove(winner)
+        loser = loser_list[0]
         # Set the loser as the other samurai who is not the winner
 
-        return {'winner': winner.controller.controller_name, 'loser': loser[0].controller.controller_name,
-                'log': self.log_string}
-        # Return a dictionary of the winning controller, losing controller and the human-readable action log
-        # Might be better to return a dictionary of the choices made for training instead
+        winner.update_win()
+        loser.update_win()
+        # Update the winner and loser input vectors to have the correct reward (as denoted by the controller)
+        # Win detection from agent health remaining so no input is required for which is which
+
+        return {'winner': winner.controller.controller_name, 'winner_vectors': winner.input_vectors,
+                'loser': loser.controller.controller_name, 'loser_vectors': loser.input_vectors,
+                'readable_log': self.log_string}
+        # Return a dictionary of the winning controller, losing controller, and their input vectors for network training
+        # Also returns the human-readable action log
 
     def run_turn(self):
         # Function to run a single 2 card turn
@@ -132,7 +139,6 @@ class Board:
         self.samurai_2.choose_actions()
         # Ask samurai 2 to choose an action
         # These should be run simultaneously eventually (ray?)
-        print()
 
         for action_num in range(2):
             stage = ['a', 'b'][action_num]
@@ -177,6 +183,9 @@ class Board:
 
             if self.samurai_1.attacking ^ self.samurai_2.attacking:
                 # If only one of the samurai attacked this turn (logical XOR)
+                self.samurai_1.update_reward()
+                self.samurai_2.update_reward()
+                # Generate the correct reward for this turn for both samurai, and put it in the dictionary
                 self.samurai_1.health -= self.samurai_2.attacking
                 self.samurai_2.health -= self.samurai_1.attacking
                 # Both samurai take damage depending on whether their opponent attacked
