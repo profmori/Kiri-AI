@@ -1,3 +1,5 @@
+import ray
+
 import Card
 from RandomController import RandomController
 
@@ -50,11 +52,11 @@ class Samurai:
     def advanced_setup(self):
         self.board_size = 7
         # Set the board size as being the larger board
-        special_cards = [0] * 3
+        special_cards = [0.0] * 3
         # Create a small vector to store which special card the player starts with
         for index, card in enumerate(Card.special_card_list):
             if card in self.hand:
-                special_cards[index] = 1
+                special_cards[index] = 1.0
                 break
             # Returns 1 if it is the special card and then exits the loop
 

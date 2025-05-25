@@ -1,6 +1,8 @@
 import random
 from copy import copy
 
+import ray
+
 from Card import special_card_list, basic_card_list
 
 
@@ -33,9 +35,9 @@ class Board:
             # Set the board size to 7
             if not display_only:
                 # If the board is not being used for displaying for manual choice
-                self.samurai_1.advanced_setup()
-                self.samurai_2.advanced_setup()
-                # Run the advanced setup from the samurai class
+                setup = [choose_setup.remote(self.samurai_1), choose_setup.remote(self.samurai_2)]
+                self.samurai_1, self.samurai_2 = ray.get(setup)
+                # Run the advanced setup from the samurai classes concurrently using ray
                 # This will set the start position and starting stance
 
         self.log_string = ''
@@ -134,11 +136,9 @@ class Board:
 
     def run_turn(self):
         # Function to run a single 2 card turn
-        self.samurai_1.choose_actions()
-        # Ask samurai 1 to choose an action
-        self.samurai_2.choose_actions()
-        # Ask samurai 2 to choose an action
-        # These should be run simultaneously eventually (ray?)
+        turns = [choose_actions.remote(self.samurai_1), choose_actions.remote(self.samurai_2)]
+        self.samurai_1, self.samurai_2 = ray.get(turns)
+        # Ask both samurai to choose an action concurrently
 
         for action_num in range(2):
             stage = ['a', 'b'][action_num]
@@ -200,3 +200,15 @@ class Board:
                 # If someone is dead after the first card has been resolved
                 break
                 # End the turn (and the game)
+
+
+@ray.remote
+def choose_setup(samurai):
+    samurai.advanced_setup()
+    return samurai
+
+
+@ray.remote
+def choose_actions(samurai):
+    samurai.choose_actions()
+    return samurai
